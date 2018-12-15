@@ -1,0 +1,4 @@
+ofxOpenCv
+ofxVectorGraphics
+ofxBlobsManager
+ofxMidi
