@@ -46,6 +46,7 @@ class ofApp : public ofBaseApp{
 		const int ballsCount = 5;
 
 		bool learnBg;
+		bool start;
 		ofVideoGrabber cam;
 		ofxCvColorImage color;
 		ofxCvGrayscaleImage gray, grayBg, grayDiff;
@@ -63,7 +64,7 @@ class ofApp : public ofBaseApp{
 		///// Tiempo
 		float now;
 
-		////// MIDI SECITON
+		////// MIDI SECTION
 
 		ofxMidiOut midiOut;
 		int channel;

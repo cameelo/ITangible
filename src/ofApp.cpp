@@ -3,9 +3,10 @@
 //--------------------------------------------------------------
 void ofApp::setup(){
 	learnBg = false;
-	//cam.setup(320, 240);
-	cam.setDeviceID(0);
-	cam.initGrabber(320, 240, false);
+	start = false;
+	cam.setDeviceID(1);
+	//cam.initGrabber(320, 240, false);
+	cam.setup(320, 240);
 	color.allocate(320, 240);
 	gray.allocate(320, 240);
 	grayBg.allocate(320, 240);
@@ -37,46 +38,51 @@ void ofApp::setup(){
 //--------------------------------------------------------------
 void ofApp::update(){
 	cam.update();
-	//cout << thres << endl;
+	if (start) {
+		//cout << thres << endl;
 
-	now = ofGetElapsedTimef();
+		now = ofGetElapsedTimef();
 
-	for (int i = 0; i < notas.size();i++) {
-		if (now - notas[i].creationTime > notas[i].timeToLive) {
-			midiOut.sendNoteOff(notas[i].channel, notas[i].note, 64);
-			cout << "note off" << endl;
-			notas.erase(notas.begin() + i);
+		for (int i = 0; i < notas.size(); i++) {
+			if (now - notas[i].creationTime > notas[i].timeToLive) {
+				midiOut.sendNoteOff(notas[i].channel, notas[i].note, 64);
+				cout << "note off" << endl;
+				notas.erase(notas.begin() + i);
+			}
 		}
-	}
-	
-	if (cam.isFrameNew()) {
-		colorPixels = cam.getPixels();
-		color.setFromPixels(colorPixels);
-		gray = color;
-		if (learnBg) {
-			grayBg = color;
-			learnBg = false;
-		}
-		grayDiff.absDiff(grayBg, gray);
-		grayDiff.threshold(thres);
-		contourFinder.findContours(grayDiff, 5, (340 * 240) / 4, 4, false, true);
-		manager.update(contourFinder.blobs);
-		if(manager.frameNewBlobs->size() > 0) {
-			midiOut.sendNoteOn(1, 100, 64);
-			notas.push_back(StoredNote(ofGetElapsedTimef(), 1, 1, 100));
-		}
-		if (manager.frameRemovedBlobs->size() > 0) {
-			midiOut.sendNoteOn(1, 50, 64);
-			notas.push_back(StoredNote(ofGetElapsedTimef(), 1, 1, 50));
-		}
-		if (contourFinder.nBlobs > 0) {
 
-			if (manager.blobs.size() > 0) {
-				for (int i = 0; i < manager.blobs.size(); i++) {
-					ofColor blobColor = getProm(manager.blobs[i]);
-					if (isRed(blobColor)) {
-						redBlob = new Ball(manager.blobs[i], Color(0));
-					};
+		if (cam.isFrameNew()) {
+			colorPixels = cam.getPixels();
+			color.setFromPixels(colorPixels);
+			gray = color;
+			if (learnBg) {
+				grayBg = color;
+				learnBg = false;
+			}
+			grayDiff.absDiff(grayBg, gray);
+			grayDiff.threshold(thres);
+			contourFinder.findContours(grayDiff, 5, (340 * 240) / 4, 4, false, true);
+			manager.update(contourFinder.blobs);
+			if (manager.frameNewBlobs->size() > 0) {
+				ofColor c = getProm(*((*manager.frameNewBlobs)[0]));
+				if (isRed(c)) {
+					midiOut.sendNoteOn(1, 39, 64);
+					notas.push_back(StoredNote(ofGetElapsedTimef(), 1, 1, 100));
+				}
+			}
+			if (manager.frameRemovedBlobs->size() > 0) {
+				midiOut.sendNoteOn(1, 29, 64);
+				notas.push_back(StoredNote(ofGetElapsedTimef(), 1, 1, 50));
+			}
+			if (contourFinder.nBlobs > 0) {
+
+				if (manager.blobs.size() > 0) {
+					for (int i = 0; i < manager.blobs.size(); i++) {
+						ofColor blobColor = getProm(manager.blobs[i]);
+						if (isRed(blobColor)) {
+							redBlob = new Ball(manager.blobs[i], Color(0));
+						};
+					}
 				}
 			}
 		}
@@ -119,26 +125,42 @@ bool ofApp::isRed(ofColor color) {
 	int red = color.r;
 	int green = color.g;
 	int blue = color.b;
-	if (100 <= red && red <= 230 && 0 <= green && green <= 25 && 0 <= blue && blue <= 25)
+	if (100 <= red && red <= 255 && 0 <= green && green <= 50 && 0 <= blue && blue <= 50)
 		return true;
 
 	return false;
 }
 
 //--------------------------------------------------------------
-void ofApp::draw(){
-	//cam.draw(0, 0);
-	color.draw(0, 0,320,240);
-	gray.draw(320, 0, 320, 240);
-	grayDiff.draw(640, 0, 320, 240);
-	contourFinder.draw(320, 240, 320, 240);
-	//manager.debugDraw(320, 240, cam.getWidth(), cam.getHeight(), 320, 240);
+void ofApp::draw() {
+	if (!start) {
+		cam.draw(0, 0);
+	}
+	else{
+		ofSetColor(255, 255, 255);
+		color.draw(0, 0, 320, 240);
+		gray.draw(320, 0, 320, 240);
+		grayDiff.draw(640, 0, 320, 240);
+		contourFinder.draw(320, 240, 320, 240);
+		//manager.debugDraw(320, 240, cam.getWidth(), cam.getHeight(), 320, 240);
+
+		///// DIBUJAR VALOR DE VARIABLES
+		ofSetColor(0, 0, 0);
+		ofDrawBitmapString(string("Threshold: ").append(std::to_string(thres)), 100, 500);
+		string blobs = "Blobs: ";
+		for (int i = 0; i < manager.blobs.size(); i++) {
+			blobs.append(std::to_string(manager.blobs[i].id));
+			blobs.append("; ");
+		}
+		ofDrawBitmapString(blobs, 100, 515);
+	}
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
 	if (key == OF_KEY_BACKSPACE) {
 		learnBg = true;
+		start = true;
 	}
 
 	if (key == 'a') {
@@ -149,21 +171,6 @@ void ofApp::keyPressed(int key){
 		thres += 10;
 	}
 
-	// send a note on if the key is a letter or a number
-	if (key == 'b') {
-
-		// scale the ascii values to midi velocity range 0-127
-		// see an ascii table: http://www.asciitable.com/
-		note = ofMap(key, 48, 122, 0, 127);
-		velocity = 64;
-		midiOut.sendNoteOn(channel, note, velocity);
-
-		//midiOut.sendControlChange()
-
-		// print out both the midi note and the frequency
-		//ofLogNotice() << "note: " << note
-		//	<< " freq: " << ofxMidi::mtof(note) << " Hz";
-	}
 	if (key == 'z') {
 		midiOut.sendControlChange(1,1,100);
 	}
