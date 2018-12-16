@@ -12,6 +12,10 @@ void ofApp::setup(){
 	grayBg.allocate(320, 240);
 	grayDiff.allocate(320, 240);
 	thres = 30;
+	notas = new std::vector<StoredNote>();
+	
+	app_life_span = 0;
+
 	//manager = ofxBlobsManager();
 
 
@@ -33,21 +37,36 @@ void ofApp::setup(){
 	bend = 0;
 	touch = 0;
 	polytouch = 0;
+
 }
 
 //--------------------------------------------------------------
 void ofApp::update(){
+
+
 	cam.update();
 	if (start) {
-		//cout << thres << endl;
+
+		bool red_found = false;
+		bool blue_found = false;
+		bool green_found = false;
+
+		if (app_life_span == 10) {
+			//reseteo los desplazamientos y actualizo las velocidades
+			for (int i = 0; i < 3; i++) {
+				if(balls[i] != NULL)
+					balls[i]->update_v();
+			}
+			app_life_span = 0;
+		}
 
 		now = ofGetElapsedTimef();
 
-		for (int i = 0; i < notas.size(); i++) {
-			if (now - notas[i].creationTime > notas[i].timeToLive) {
-				midiOut.sendNoteOff(notas[i].channel, notas[i].note, 64);
+		for (int i = 0; i < notas->size(); i++) {
+			if (now - (*notas)[i].creationTime > (*notas)[i].timeToLive) {
+				midiOut.sendNoteOff((*notas)[i].channel, (*notas)[i].note, 64);
 				cout << "note off" << endl;
-				notas.erase(notas.begin() + i);
+				notas->erase(notas->begin() + i);
 			}
 		}
 
@@ -63,30 +82,89 @@ void ofApp::update(){
 			grayDiff.threshold(thres);
 			contourFinder.findContours(grayDiff, 5, (340 * 240) / 4, 4, false, true);
 			manager.update(contourFinder.blobs);
-			if (manager.frameNewBlobs->size() > 0) {
+			/*if (manager.frameNewBlobs->size() > 0) {
 				ofColor c = getProm(*((*manager.frameNewBlobs)[0]));
 				if (isRed(c)) {
 					midiOut.sendNoteOn(1, 39, 64);
-					notas.push_back(StoredNote(ofGetElapsedTimef(), 1, 1, 100));
+					notas->push_back(StoredNote(ofGetElapsedTimef(), 1, 1, 100));
 				}
 			}
 			if (manager.frameRemovedBlobs->size() > 0) {
 				midiOut.sendNoteOn(1, 29, 64);
-				notas.push_back(StoredNote(ofGetElapsedTimef(), 1, 1, 50));
-			}
+				notas->push_back(StoredNote(ofGetElapsedTimef(), 1, 1, 50));
+			}*/
 			if (contourFinder.nBlobs > 0) {
 
 				if (manager.blobs.size() > 0) {
 					for (int i = 0; i < manager.blobs.size(); i++) {
 						ofColor blobColor = getProm(manager.blobs[i]);
-						if (isRed(blobColor)) {
-							redBlob = new Ball(manager.blobs[i], Color(0));
-						};
+						//RED BALL PROCESS
+						if (isRed(blobColor) ) {
+							if (!red_found) {
+								if (balls[0] == NULL) {
+									balls[0] = new Ball(manager.blobs[i], Color(0));
+								}
+								else {
+									//actualizo su datos
+									balls[0]->update_displacement(manager.blobs[i].centroid.x, manager.blobs[i].centroid.y);
+									balls[0]->sendMidi(midiOut, notas);
+								}
+								balls[0]->lived();
+							}
+							red_found = true;
+
+						}else if (isBlue(blobColor)) {
+							if (!blue_found) {
+								if (balls[1] == NULL) {
+									balls[1] = new Ball(manager.blobs[i], Color(0));
+								}
+								else {
+									//actualizo su datos
+									balls[1]->update_displacement(manager.blobs[i].centroid.x, manager.blobs[i].centroid.y);
+									balls[1]->sendMidi(midiOut, notas);
+								}
+								balls[1]->lived();
+								
+							}
+							blue_found = true;
+						}
+						else if (isGreen(blobColor)) {
+							if (!green_found) {
+								if (balls[2] == NULL) {
+									balls[2] = new Ball(manager.blobs[i], Color(0));
+								}
+								else {
+									//actualizo su datos
+									balls[2]->update_displacement(manager.blobs[i].centroid.x, manager.blobs[i].centroid.y);
+									balls[2]->sendMidi(midiOut, notas);
+								}
+								balls[2]->lived();
+
+							}
+							green_found = true;
+						}
+					}
+
+					if (balls[0] != NULL && !red_found) {
+						delete(balls[0]);
+						balls[0] = NULL;
+					}
+					if (balls[1] != NULL && !blue_found) {
+						delete(balls[1]);
+						balls[1] = NULL;
+					}
+					if (balls[2] != NULL && !green_found) {
+						delete(balls[2]);
+						balls[2] = NULL;
 					}
 				}
 			}
 		}
+		app_life_span++;
+		
 	}
+
+
 }
 
 ofColor ofApp::getProm(ofxCvBlob blob) {
@@ -125,7 +203,33 @@ bool ofApp::isRed(ofColor color) {
 	int red = color.r;
 	int green = color.g;
 	int blue = color.b;
-	if (100 <= red && red <= 255 && 0 <= green && green <= 50 && 0 <= blue && blue <= 50)
+	if (0 <= red && red <= 255 && 0 <= green && green <= 140 && 0 <= blue && blue <= 140)
+		return true;
+
+	return false;
+}
+
+bool ofApp::isBlue(ofColor color) {
+	//asumimos tolerancia de 10% (25 en cada coordenada)
+	//como rojo puro es 255:
+	int red = color.r;
+	int green = color.g;
+	int blue = color.b;
+	//TODO: SET BLUE PARAMS
+	if (0 <= red && red <= 60 && 0 <= green && green <= 120 && 0 <= blue && blue <= 255)
+		return true;
+
+	return false;
+}
+
+bool ofApp::isGreen(ofColor color) {
+	//asumimos tolerancia de 10% (25 en cada coordenada)
+	//como rojo puro es 255:
+	int red = color.r;
+	int green = color.g;
+	int blue = color.b;
+	//TODO: SET GREEN PARAMS
+	if (0 <= red && red <= 120 && 0 <= green && green <= 255 && 0 <= blue && blue <= 170)
 		return true;
 
 	return false;
@@ -153,6 +257,13 @@ void ofApp::draw() {
 			blobs.append("; ");
 		}
 		ofDrawBitmapString(blobs, 100, 515);
+
+		if (balls[0] != NULL) {
+			ofDrawBitmapString("vida pelota roja: " + ofToString(balls[0]->life_span), 100, 555);
+			ofDrawBitmapString("velocidad pelota roja: " + ofToString(balls[0]->v_module), 100, 595);
+			ofDrawBitmapString("centro pelota roja: " + ofToString(balls[0]->blob.centroid.x) + "," + ofToString(balls[0]->blob.centroid.y), 100, 615);
+
+		}
 	}
 }
 
@@ -177,6 +288,10 @@ void ofApp::keyPressed(int key){
 
 	if (key == 'x') {
 		midiOut.sendControlChange(2, 1, 100);
+	}
+
+	if (key == 'c') {
+		midiOut.sendControlChange(3, 1, 100);
 	}
 }
 

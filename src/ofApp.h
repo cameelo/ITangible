@@ -59,7 +59,7 @@ class ofApp : public ofBaseApp{
 		//Ball balls[5];
 
 		////// Notas reproducidas
-		std::vector<StoredNote> notas;
+		std::vector<StoredNote>* notas;
 
 		///// Tiempo
 		float now;
@@ -74,8 +74,15 @@ class ofApp : public ofBaseApp{
 		int pan, bend, touch, polytouch;
 
 		//// COLOR
-		Ball* redBlob;
+		//balls[0] = RED BLOB
+		//balls[1] = GREEN BLOB
+		Ball *balls[3];
+		int app_life_span;
+		
 		bool isRed(ofColor color);
+		bool isBlue(ofColor color);
+		bool isGreen(ofColor color);
 
 		ofColor getProm(ofxCvBlob blob);
+
 };
